@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 对话咨询 — 笙态AI</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/chat.css">
+  <style>
+    /* 用户菜单样式 */
+    .user-menu {
+      position: relative;
+      display: inline-block;
+    }
+    .user-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    .user-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    .vip-badge {
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      color: #000;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .user-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      min-width: 200px;
+      display: none;
+      z-index: 1000;
+      overflow: hidden;
+    }
+    .user-dropdown.show { display: block; }
+    .dropdown-header {
+      padding: 16px;
+      border-bottom: 1px solid #eee;
+    }
+    .dropdown-header .email {
+      color: #333;
+      font-weight: 500;
+    }
+    .dropdown-header .status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      color: #333;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .dropdown-item:hover { background: #f5f5f5; }
+    .dropdown-item.logout { color: #e74c3c; }
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .loading-content {
+      text-align: center;
+      color: white;
+    }
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <!-- 加载屏幕 -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p>正在加载...</p>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-logo">
+        <div class="logo-icon">💫</div>
+        <span>笙态AI</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">首页</a></li>
+        <li><a href="features.html">功能</a></li>
+        <li><a href="pricing.html">定价</a></li>
+        <li><a href="cases.html">案例</a></li>
+        <li><a href="about.html">关于</a></li>
+      </ul>
+      
+      <!-- 用户菜单 -->
+      <div class="user-menu" id="userMenu" style="display:none;">
+        <button class="user-btn" onclick="toggleDropdown()">
+          <div class="user-avatar" id="userAvatar">?</div>
+          <span id="userName">用户</span>
+          <span class="vip-badge" id="vipBadge" style="display:none;">VIP</span>
+          <span>▼</span>
+        </button>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="dropdown-header">
+            <div class="email" id="userEmail">user@email.com</div>
+            <div class="status" id="userStatus">免费用户</div>
+          </div>
+          <a href="pricing.html" class="dropdown-item">
+            <span>💎</span> 升级VIP会员
+          </a>
+          <div class="dropdown-item" onclick="viewHistory()">
+            <span>📜</span> 查看历史记录
+          </div>
+          <div class="dropdown-item logout" onclick="logout()">
+            <span>🚪</span> 退出登录
+          </div>
+        </div>
+      </div>
+      
+      <a href="login.html" class="nav-cta" id="loginBtn">登录</a>
+    </div>
+  </nav>
+
+  <main class="chat-main">
+    <div class="chat-container">
+      <!-- Chat Sidebar -->
+      <aside class="chat-sidebar">
+        <div class="sidebar-header">
+          <h3>💬 对话记录</h3>
+          <button class="btn-new-chat" onclick="newChat()">+ 新对话</button>
+        </div>
+        <div class="chat-history" id="chatHistory">
+          <!-- 历史记录将通过 Firebase 加载 -->
+        </div>
+        <div class="sidebar-footer">
+          <a href="pricing.html" class="upgrade-btn" id="sidebarUpgrade">
+            <span>⬆️</span> 升级会员
+          </a>
+          <p class="free-tier" id="freeTier">今日剩余 <strong>5</strong> 次提问</p>
+        </div>
+      </aside>
+
+      <!-- Chat Area -->
+      <div class="chat-area">
+        <div class="chat-header-bar">
+          <div class="chat-model-info">
+            <span class="model-badge">✨</span>
+            <span>笙态AI · 智能助手</span>
+            <span class="vip-indicator" id="vipIndicator" style="display:none;">💎 VIP</span>
+          </div>
+          <div class="chat-actions">
+            <button class="btn-clear" onclick="clearChat()">清空对话</button>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <!-- Welcome Message -->
+          <div class="message ai-message">
+            <div class="message-avatar">💫</div>
+            <div class="message-content">
+              <div class="message-bubble">
+                <p>👋 你好！我是<strong>笙态AI</strong>，你的24小时智能助手。</p>
+                <p style="margin-top:12px">请随时告诉我你的问题或需求，我会尽力帮助你！😊</p>
+              </div>
+              <div class="message-time">刚刚</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested Questions -->
+        <div class="suggestions" id="suggestions">
+          <p class="suggestions-label">试试这样问我：</p>
+          <div class="suggestion-chips">
+            <button class="chip" onclick="sendSuggestion(this)">推荐一个蜜月目的地</button>
+            <button class="chip" onclick="sendSuggestion(this)">帮我规划日本7日游</button>
+            <button class="chip" onclick="sendSuggestion(this)">职场新人如何快速成长？</button>
+            <button class="chip" onclick="sendSuggestion(this)">3岁孩子怎么教育？</button>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area">
+          <div class="input-wrapper">
+            <textarea id="userInput" placeholder="输入你的问题..." rows="1" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" onclick="sendMessage()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 18 11 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+          <p class="input-hint">
+            <span class="free-info" id="inputHint">免费用户 · 今日剩余 <strong id="remainingCount">5</strong> 次</span>
+            <a href="pricing.html" class="upgrade-link">升级无限提问 →</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <script src="js/main.js"></script>
+  <script src="js/chat.js"></script>
+  
+  <script>
+    // Firebase 配置 - 需要替换为你自己的配置
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    
+    // 全局变量
+    let currentUser = null;
+    let currentChatId = null;
+    let isVip = false;
+    
+    // 切换下拉菜单
+    function toggleDropdown() {
+      const dropdown = document.getElementById('userDropdown');
+      dropdown.classList.toggle('show');
+    }
+    
+    // 点击其他地方关闭菜单
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.user-menu')) {
+        document.getElementById('userDropdown').classList.remove('show');
+      }
+    });
+    
+    // 退出登录
+    async function logout() {
+      try {
+        await auth.signOut();
+        window.location.href = 'login.html';
+      } catch (error) {
+        console.error('退出失败:', error);
+      }
+    }
+    
+    // 查看历史记录
+    function viewHistory() {
+      alert('历史记录功能开发中...');
+    }
+    
+    // 更新用户界面
+    function updateUserUI(user, userData) {
+      const userMenu = document.getElementById('userMenu');
+      const loginBtn = document.getElementById('loginBtn');
+      const userName = document.getElementById('userName');
+      const userEmail = document.getElementById('userEmail');
+      const userAvatar = document.getElementById('userAvatar');
+      const userStatus = document.getElementById('userStatus');
+      const vipBadge = document.getElementById('vipBadge');
+      const vipIndicator = document.getElementById('vipIndicator');
+      const sidebarUpgrade = document.getElementById('sidebarUpgrade');
+      const freeTier = document.getElementById('freeTier');
+      const inputHint = document.getElementById('inputHint');
+      
+      // 游客模式
+      const isGuest = localStorage.getItem('isGuest') === 'true';
+      
+      if (isGuest) {
+        userMenu.style.display = 'none';
+        loginBtn.textContent = '登录';
+        loginBtn.href = 'login.html';
+        freeTier.style.display = 'block';
+        inputHint.innerHTML = '游客模式 · 今日剩余 <strong id="remainingCount">5</strong> 次';
+        return;
+      }
+      
+      if (user) {
+        currentUser = user;
+        userMenu.style.display = 'inline-block';
+        loginBtn.style.display = 'none';
+        
+        // 获取用户数据
+        if (userData) {
+          isVip = userData.isVip || false;
+          const vipExpire = userData.vipExpire;
+          
+          // 检查VIP是否过期
+          if (vipExpire && new Date(vipExpire) < new Date()) {
+            isVip = false;
+          }
+        }
+        
+        // 更新UI
+        const displayName = user.displayName || user.email.split('@')[0];
+        const initial = displayName.charAt(0).toUpperCase();
+        
+        userName.textContent = displayName;
+        userEmail.textContent = user.email;
+        userAvatar.textContent = initial;
+        
+        if (isVip) {
+          userStatus.textContent = '💎 VIP会员';
+          userStatus.style.color = '#f39c12';
+          vipBadge.style.display = 'inline';
+          vipIndicator.style.display = 'inline';
+          sidebarUpgrade.style.display = 'none';
+          freeTier.innerHTML = '<strong>∞</strong> 无限次提问';
+          inputHint.innerHTML = '💎 VIP会员 · <strong>∞</strong> 无限次';
+        } else {
+          userStatus.textContent = '免费用户';
+          vipBadge.style.display = 'none';
+          vipIndicator.style.display = 'none';
+          sidebarUpgrade.style.display = 'block';
+        }
+      } else {
+        userMenu.style.display = 'none';
+        loginBtn.style.display = 'inline-block';
+        loginBtn.textContent = '登录';
+        loginBtn.href = 'login.html';
+      }
+    }
+    
+    // 保存对话到 Firebase
+    async function saveChatToServer(userMsg, aiMsg) {
+      if (!currentUser) return;
+      
+      try {
+        const chatsRef = db.collection('users').doc(currentUser.uid)
+                          .collection('chats').doc(currentChatId);
+        
+        await chatsRef.update({
+          messages: firebase.firestore.FieldValue.arrayUnion({
+            user: userMsg,
+            ai: aiMsg,
+            time: new Date().toISOString()
+          }),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (error) {
+        console.error('保存对话失败:', error);
+      }
+    }
+    
+    // 加载对话历史
+    async function loadChatHistory() {
+      if (!currentUser) return;
+      
+      const historyContainer = document.getElementById('chatHistory');
+      const isGuest = localStorage.getItem('isGuest') === 'true';
+      
+      if (isGuest) {
+        historyContainer.innerHTML = `
+          <div class="history-empty">
+            <p>👤 游客模式</p>
+            <small>登录后可保存对话记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      try {
+        const chatsSnapshot = await db.collection('users').doc(currentUser.uid)
+          .collection('chats')
+          .orderBy('updatedAt', 'desc')
+          .limit(20)
+          .get();
+        
+        if (chatsSnapshot.empty) {
+          historyContainer.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">暂无对话记录</p>';
+          return;
+        }
+        
+        let html = '';
+        chatsSnapshot.forEach(doc => {
+          const chat = doc.data();
+          const title = chat.title || '新对话';
+          const isActive = doc.id === currentChatId ? 'active' : '';
+          html += `
+            <div class="history-item ${isActive}" onclick="loadChat('${doc.id}')">
+              <span class="history-icon">💬</span>
+              <span class="history-title">${title}</span>
+            </div>
+          `;
+        });
+        
+        historyContainer.innerHTML = html;
+      } catch (error) {
+        console.error('加载历史失败:', error);
+      }
+    }
+    
+    // 创建新对话
+    async function newChat() {
+      if (!currentUser) {
+        alert('请先登录！');
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      currentChatId = null;
+      document.getElementById('chatMessages').innerHTML = `
+        <div class="message ai-message">
+          <div class="message-avatar">💫</div>
+          <div class="message-content">
+            <div class="message-bubble">
+              <p>👋 你好！我是<strong>笙态AI</strong>，你的24小时智能助手。</p>
+              <p style="margin-top:12px">请随时告诉我你的问题或需求，我会尽力帮助你！😊</p>
+            </div>
+            <div class="message-time">刚刚</div>
+          </div>
+        </div>
+      `;
+      document.getElementById('suggestions').style.display = 'block';
+      
+      // 重置对话历史
+      conversationHistory = [
+        {
+          role: "system",
+          content: "你是一个友好的AI助手，名字叫笙态。你的职责是帮助用户解答各种问题。"
+        }
+      ];
+      
+      loadChatHistory();
+    }
+    
+    // 加载指定对话
+    async function loadChat(chatId) {
+      currentChatId = chatId;
+      
+      try {
+        const chatDoc = await db.collection('users').doc(currentUser.uid)
+          .collection('chats').doc(chatId).get();
+        
+        if (!chatDoc.exists) return;
+        
+        const chatData = chatDoc.data();
+        conversationHistory = chatData.messages || [];
+        
+        // 渲染消息
+        let html = '';
+        chatData.messages.forEach(msg => {
+          html += `
+            <div class="message user-message">
+              <div class="message-avatar">👤</div>
+              <div class="message-content">
+                <div class="message-bubble">${msg.user.replace(/\n/g, '<br>')}</div>
+              </div>
+            </div>
+            <div class="message ai-message">
+              <div class="message-avatar">💫</div>
+              <div class="message-content">
+                <div class="message-bubble">${msg.ai.replace(/\n/g, '<br>')}</div>
+                <div class="message-time">刚刚</div>
+              </div>
+            </div>
+          `;
+        });
+        
+        document.getElementById('chatMessages').innerHTML = html;
+        document.getElementById('suggestions').style.display = 'none';
+        
+        // 滚动到底部
+        const container = document.getElementById('chatMessages');
+        container.scrollTop = container.scrollHeight;
+        
+        loadChatHistory();
+      } catch (error) {
+        console.error('加载对话失败:', error);
+      }
+    }
+    
+    // 重写 sendMessage 保存到 Firebase
+    const originalSendMessage = sendMessage;
+    sendMessage = async function() {
+      await originalSendMessage();
+      
+      // 保存最后的用户消息和AI回复
+      const messages = document.querySelectorAll('.message');
+      if (messages.length >= 2) {
+        const userMsgEl = messages[messages.length - 2].querySelector('.message-bubble');
+        const aiMsgEl = messages[messages.length - 1].querySelector('.message-bubble');
+        
+        if (userMsgEl && aiMsgEl) {
+          const userMsg = userMsgEl.textContent;
+          const aiMsg = aiMsgEl.textContent;
+          await saveChatToServer(userMsg, aiMsg);
+        }
+      }
+    };
+    
+    // 监听登录状态
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        // 获取用户数据
+        try {
+          const userDoc = await db.collection('users').doc(user.uid).get();
+          const userData = userDoc.data();
+          updateUserUI(user, userData);
+          await loadChatHistory();
+        } catch (error) {
+          console.error('获取用户数据失败:', error);
+          updateUserUI(user, {});
+        }
+      } else {
+        updateUserUI(null, {});
+      }
+      
+      // 隐藏加载屏幕
+      document.getElementById('loadingScreen').style.display = 'none';
+    });
+  </script>
+</body>
+</html>
